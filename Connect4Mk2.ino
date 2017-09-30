@@ -7,6 +7,14 @@ byte board[6][2] = {
   {0b0000111, 0b1110000}
 };
 
+//   0123456
+//  0.......
+//  1.......
+//  2.......
+//  3.......
+//  4.......
+//  5.......
+
 unsigned int score[2] = {1000, 1000};
 
 const char token[2] = {'O', 'X'};
@@ -36,7 +44,7 @@ void printBoard() {
   Serial.println(buf);
 }
 
-void evaluate(byte board[6][2], byte player, byte col) {
+void evaluateMove(byte board[6][2], byte player, byte col) {
   byte mask = 0b1000000 >> col;
   byte row = 0;
   byte opponent = 1 - player;
@@ -46,94 +54,153 @@ void evaluate(byte board[6][2], byte player, byte col) {
 
   //Check Horiz win lines
 
-  byte leftLimit = 0;
-  if (col > 2) leftLimit = col - 3;
-  byte rightLimit = 3;
-  if (col < 3) rightLimit = col;
-
-  for (byte startCol = leftLimit; startCol <= rightLimit; startCol++) {
-    sprintf(buf, "checking horz line from col %d to col %d: ", startCol, startCol + 3);
-    Serial.print(buf);
-    byte playerScore = 0;
-    byte opponentScore = 0;
-    byte mask = 0b1000000 >> startCol;
-    for (byte col = 0; col < 4; col++) {
-      if (board[row][player] & mask) playerScore++;
-      if (board[row][opponent] & mask) opponentScore++;
-      mask >>= 1;
+  char startCol = col;
+  char startRow = row;
+  char startMask = mask;
+  for (char line = 0; line <= 3; line++) {
+    if (startCol <= 3) {
+      sprintf(buf, "checking horz line from col %d row %d: ", startCol, row);
+      Serial.print(buf);
+      byte playerScore = 0;
+      byte opponentScore = 0;
+      byte posMask = startMask;
+      char posRow = startRow;
+      for (byte pos = 0; pos < 4; pos++) {
+        if (board[posRow][player] & posMask) playerScore++;
+        if (board[posRow][opponent] & posMask) opponentScore++;
+        posMask >>= 1;
+      }
+      sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
+      Serial.print(buf);
+      if (opponentScore > 0 && playerScore > 0) {
+        sprintf(buf, "no change");
+      }
+      else if (opponentScore > 0 && playerScore == 0) {
+        sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
+      }
+      else if (opponentScore == 0) {
+        sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
+      }
+      Serial.println(buf);
     }
-    sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
-    Serial.print(buf);
-    if (opponentScore > 0 && playerScore > 0) {
-      sprintf(buf, "no change");
-    }
-    else if (opponentScore > 0 && playerScore == 0) {
-      sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
-    }
-    else if (opponentScore == 0) {
-      sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
-    }
-    Serial.println(buf);
+    startCol--;
+    startMask <<= 1;
+    if (startCol < 0) break;
   }
 
   //Check Vert win lines
 
-  byte topLimit = 0;
-  if (row > 2) topLimit = row - 3;
-  byte bottomLimit = 2;
-  if (row < 2) bottomLimit = row;
-
-  for (byte startRow = topLimit; startRow <= bottomLimit; startRow++) {
-    sprintf(buf, "checking vert line from row %d to row %d: ", startRow, startRow + 3);
-    Serial.print(buf);
-    byte playerScore = 0;
-    byte opponentScore = 0;
-    for (byte row = startRow; row < startRow + 4; row++) {
-      if (board[row][player] & mask) playerScore++;
-      if (board[row][opponent] & mask) opponentScore++;
+  startRow = row;
+  startCol = col;
+  startMask = mask;
+  for (byte line = 0; line <= 3; line++) {
+    if (startRow <= 2) {
+      sprintf(buf, "checking vert line from col %d row %d: ", startCol, startRow);
+      Serial.print(buf);
+      byte playerScore = 0;
+      byte opponentScore = 0;
+      char posRow = startRow;
+      byte posMask = startMask;
+      for (byte pos = 0; pos < 4; pos++) {
+        if (board[posRow][player] & posMask) playerScore++;
+        if (board[posRow][opponent] & posMask) opponentScore++;
+        posRow++;
+      }
+      sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
+      Serial.print(buf);
+      if (opponentScore > 0 && playerScore > 0) {
+        sprintf(buf, "no change");
+      }
+      else if (opponentScore > 0 && playerScore == 0) {
+        sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
+      }
+      else if (opponentScore == 0) {
+        sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
+      }
+      Serial.println(buf);
     }
-    sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
-    Serial.print(buf);
-    if (opponentScore > 0 && playerScore > 0) {
-      sprintf(buf, "no change");
-    }
-    if (opponentScore > 0 && playerScore == 0) {
-      sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
-    }
-    else if (opponentScore == 0) {
-      sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
-    }
-    Serial.println(buf);
+    startRow--;
+    if (startRow < 0) break;
   }
-  
+
   //Check diag\ win lines
 
-  byte topLimit = 0;
-  if (row > 2) topLimit = row - 3;
-  byte bottomLimit = 2;
-  if (row < 2) bottomLimit = row;
+  startRow = row;
+  startCol = col;
+  startMask = mask;
+  for (byte line = 0; line <= 3; line++) {
+    if (startRow <= 2 && startCol <= 3) {
+      sprintf(buf, "checking diag\\ line from col %d row %d: ", startCol, startRow);
+      Serial.print(buf);
+      byte playerScore = 0;
+      byte opponentScore = 0;
+      char posRow = startRow;
+      char posCol = startCol;
+      byte posMask = startMask;
+      for (byte pos = 0; pos < 4; pos++) {
+        if (board[posRow][player] & posMask) playerScore++;
+        if (board[posRow][opponent] & posMask) opponentScore++;
+        posRow++;
+        posCol++;
+        posMask >>= 1;
+      }
+      sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
+      Serial.print(buf);
+      if (opponentScore > 0 && playerScore > 0) {
+        sprintf(buf, "no change");
+      }
+      else if (opponentScore > 0 && playerScore == 0) {
+        sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
+      }
+      else if (opponentScore == 0) {
+        sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
+      }
+      Serial.println(buf);
+    }
+    startRow--;
+    startCol--;
+    startMask <<= 1;
+    if (startRow < 0 || startCol < 0) break;
+  }
 
-  for (byte startRow = topLimit; startRow <= bottomLimit; startRow++) {
-    sprintf(buf, "checking vert line from row %d to row %d: ", startRow, startRow + 3);
-    Serial.print(buf);
-    byte playerScore = 0;
-    byte opponentScore = 0;
-    for (byte row = startRow; row < startRow + 4; row++) {
-      if (board[row][player] & mask) playerScore++;
-      if (board[row][opponent] & mask) opponentScore++;
+  //Check diag/ win lines
+
+  startRow = row;
+  startCol = col;
+  startMask = mask;
+  for (byte line = 0; line <= 3; line++) {
+    if (startRow <= 2 && startCol >= 3) {
+      sprintf(buf, "checking diag/ line from col %d row %d: ", startCol, startRow);
+      Serial.print(buf);
+      byte playerScore = 0;
+      byte opponentScore = 0;
+      char posRow = startRow;
+      char posCol = startCol;
+      byte posMask = startMask;
+      for (byte pos = 0; pos < 4; pos++) {
+        if (board[posRow][player] & posMask) playerScore++;
+        if (board[posRow][opponent] & posMask) opponentScore++;
+        posRow++;
+        posCol--;
+        posMask <<= 1;
+      }
+      sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
+      Serial.print(buf);
+      if (opponentScore > 0 && playerScore > 0) {
+        sprintf(buf, "no change");
+      }
+      else if (opponentScore > 0 && playerScore == 0) {
+        sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
+      }
+      else if (opponentScore == 0) {
+        sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
+      }
+      Serial.println(buf);
     }
-    sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerScore, token[opponent], opponentScore);
-    Serial.print(buf);
-    if (opponentScore > 0 && playerScore > 0) {
-      sprintf(buf, "no change");
-    }
-    if (opponentScore > 0 && playerScore == 0) {
-      sprintf(buf, "%c would loose %d points", token[opponent], points[opponentScore]);
-    }
-    else if (opponentScore == 0) {
-      sprintf(buf, "%c would gain %d points", token[player], points[playerScore+1] - points[playerScore]);
-    }
-    Serial.println(buf);
+    startRow--;
+    startCol++;
+    startMask >>= 1;
+    if (startRow < 0 || startCol > 6) break;
   }
 }
 
@@ -141,7 +208,7 @@ void evaluate(byte board[6][2], byte player, byte col) {
 void setup() {
   Serial.begin(115200);
   printBoard();
-  evaluate(board, 0, 3);
+  evaluateMove(board, 0, 2);
 }
 
 void loop() {
