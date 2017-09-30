@@ -4,7 +4,7 @@ byte board[6][2] = {
   {0b0000000, 0b0000000},
   {0b0000000, 0b0000000},
   {0b0000000, 0b0000000},
-  {0b0000111, 0b1110000}
+  {0b0000000, 0b0000000}
 };
 
 //   0123456
@@ -15,13 +15,13 @@ byte board[6][2] = {
 //  4.......
 //  5.......
 
-unsigned int score[2] = {1000, 1000};
+unsigned int score[2] = {0, 0};
 
 const char token[2] = {'O', 'X'};
 const int points[5] = {0, 1, 100, 1000, 10000};
 const byte mask[7] = {0b1000000, 0b0100000, 0b0010000, 0b0001000, 0b0000100, 0b0000010, 0b0000001};
-const char dirName[4][6] = {"horz", "vert", "diag\\", "diag/"};
 
+const char dirName[4][6] = {"horz", "vert", "diag\\", "diag/"};
 char buf[80];
 
 void printBoard() {
@@ -37,11 +37,13 @@ void printBoard() {
           else c = '?';
       Serial.print(c);
     }
-    Serial.println();
+    if (row == 1) sprintf(buf, "  Scores:");
+    else if (row == 2) sprintf(buf, "  %c = %d", token[0], score[0]);
+    else if (row == 3) sprintf(buf, "  %c = %d", token[1], score[1]);
+    else sprintf(buf, "");
+    Serial.println(buf);
   }
-  sprintf(buf, "\nScores: %c = %d, %c = %d\n", token[0], score[0], token[1], score[1]);
-  Serial.println(buf);
-  
+  Serial.println();
 }
 
 void evaluateLine(byte board[6][2], byte player, char posRow, char posCol, char rowDir, char colDir) {
@@ -97,19 +99,29 @@ void evaluateMove(byte board[6][2], byte player, byte col) {
   Serial.println(buf);
 
   //Check win lines
-  evaluateLines(board, player, row, col, 0, 1, 0, 5, 0, 3);
-  evaluateLines(board, player, row, col, 1, 0, 0, 2, 0, 6);
-  evaluateLines(board, player, row, col, 1, 1, 0, 2, 0, 3);
-  evaluateLines(board, player, row, col, 1, -1, 0, 2, 3, 6);
+  evaluateLines(board, player, row, col, 0, 1, 0, 5, 0, 3); // Horizontal
+  evaluateLines(board, player, row, col, 1, 0, 0, 2, 0, 6); // Vertical
+  evaluateLines(board, player, row, col, 1, 1, 0, 2, 0, 3); // Diagonal NW to SE
+  evaluateLines(board, player, row, col, 1, -1, 0, 2, 3, 6); // Diagonal NE to SW
+
+  board[row][player] |= mask[col];
   
 }
 
 void setup() {
   
   Serial.begin(115200);
-  printBoard();
-  evaluateMove(board, 0, 3);
+  randomSeed(1234);
   
+  for (int n = 0; n <= 5; n++) {
+    for (byte player = 0; player <= 1; player++) {
+      char col = random(7);
+      sprintf(buf, "\nRound %d, %c's move, chooses column %d:\n", n, token[player], col);
+      Serial.println(buf);
+      printBoard();
+      evaluateMove(board, player, col);
+    }
+  } 
 }
 
 void loop() {
