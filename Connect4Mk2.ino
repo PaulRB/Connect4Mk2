@@ -20,6 +20,7 @@ unsigned int score[2] = {1000, 1000};
 const char token[2] = {'O', 'X'};
 const int points[5] = {0, 1, 100, 1000, 10000};
 const byte mask[7] = {0b1000000, 0b0100000, 0b0010000, 0b0001000, 0b0000100, 0b0000010, 0b0000001};
+const char dirName[4][6] = {"horz", "vert", "diag\\", "diag/"};
 
 char buf[80];
 
@@ -68,11 +69,17 @@ void evaluateLine(byte board[6][2], byte player, char posRow, char posCol, char 
   
 }
 
-void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, char rowDir, char colDir, char minRow, char maxRow, char minCol, char maxCol, char* dirName) {
+void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, char rowDir, char colDir,
+                   char minRow, char maxRow, char minCol, char maxCol) {
 
   for (byte line = 0; line <= 3; line++) {
     if (startRow >= minRow && startRow <= maxRow && startCol >= minCol && startCol <= maxCol) {
-      sprintf(buf, "checking %s line from col %d row %d: ", dirName, startCol, startRow);
+      byte dirNbr = 0;
+      if (rowDir != 0)
+        if (colDir == 0) dirNbr = 1;
+        else if (colDir == 1) dirNbr = 2;
+        else dirNbr = 3;
+      sprintf(buf, "checking %s line from col %d row %d: ", dirName[dirNbr], startCol, startRow);
       Serial.print(buf);
       evaluateLine(board, player, startRow, startCol, rowDir, colDir);
     }
@@ -85,17 +92,15 @@ void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, 
 void evaluateMove(byte board[6][2], byte player, byte col) {
   
   byte row = 0;
-  char startCol;
-  char startRow;
   while ((row < 5) && ((board[row + 1][0] & mask[col]) == 0) && ((board[row + 1][1] & mask[col]) == 0)) row++;
   sprintf(buf, "%c's counter would land in row %d column %d", token[player], row, col);
   Serial.println(buf);
 
   //Check win lines
-  evaluateLines(board, player, row, col, 0, 1, 0, 5, 0, 3, "horz");
-  evaluateLines(board, player, row, col, 1, 0, 0, 2, 0, 6, "vert");
-  evaluateLines(board, player, row, col, 1, 1, 0, 2, 0, 3, "diag\\");
-  evaluateLines(board, player, row, col, 1, -1, 0, 2, 3, 6, "diag/");
+  evaluateLines(board, player, row, col, 0, 1, 0, 5, 0, 3);
+  evaluateLines(board, player, row, col, 1, 0, 0, 2, 0, 6);
+  evaluateLines(board, player, row, col, 1, 1, 0, 2, 0, 3);
+  evaluateLines(board, player, row, col, 1, -1, 0, 2, 3, 6);
   
 }
 
