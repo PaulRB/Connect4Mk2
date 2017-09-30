@@ -56,21 +56,21 @@ void evaluateLine(byte board[6][2], byte player, char posRow, char posCol, char 
     posRow += rowDir;
     posCol += colDir;
   }
-  sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerTokens, token[1 - player], opponentTokens);
-  Serial.print(buf);
+  //sprintf(buf, "%c has %d counters, %c has %d counters, ", token[player], playerTokens, token[1 - player], opponentTokens);
+  //Serial.print(buf);
 
   if (opponentTokens > 0 && playerTokens > 0) {
-    sprintf(buf, "no change");
+    //sprintf(buf, "no change");
   }
   else if (opponentTokens > 0 && playerTokens == 0) {
     *opponentScore -= points[opponentTokens];
-    sprintf(buf, "%c would loose %d points", token[1 - player], points[opponentTokens]);
+    //sprintf(buf, "%c would loose %d points", token[1 - player], points[opponentTokens]);
   }
   else if (opponentTokens == 0) {
     *playerScore += points[playerTokens + 1] - points[playerTokens];
-    sprintf(buf, "%c would gain %d points", token[player], points[playerTokens + 1] - points[playerTokens]);
+    //sprintf(buf, "%c would gain %d points", token[player], points[playerTokens + 1] - points[playerTokens]);
   }
-  Serial.println(buf);
+  //Serial.println(buf);
   
 }
 
@@ -79,13 +79,14 @@ void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, 
 
   for (byte line = 0; line <= 3; line++) {
     if (startRow >= minRow && startRow <= maxRow && startCol >= minCol && startCol <= maxCol) {
-      byte dirNbr = 0;
+      /*byte dirNbr = 0;
       if (rowDir != 0)
         if (colDir == 0) dirNbr = 1;
         else if (colDir == 1) dirNbr = 2;
         else dirNbr = 3;
       sprintf(buf, "checking %s line from col %d row %d: ", dirName[dirNbr], startCol, startRow);
       Serial.print(buf);
+      */
       evaluateLine(board, player, startRow, startCol, rowDir, colDir, playerScore, opponentScore);
     }
     startRow -= rowDir;
@@ -98,8 +99,8 @@ void evaluateMove(byte board[6][2], byte player, byte col, long *playerScore, lo
   
   byte row = 0;
   while ((row < 5) && ((board[row + 1][0] & mask[col]) == 0) && ((board[row + 1][1] & mask[col]) == 0)) row++;
-  sprintf(buf, "%c's counter would land in row %d column %d", token[player], row, col);
-  Serial.println(buf);
+  //sprintf(buf, "%c's counter would land in row %d column %d", token[player], row, col);
+  //Serial.println(buf);
 
   //Check win lines
   evaluateLines(board, player, row, col, 0, 1, 0, 5, 0, 3, playerScore, opponentScore); // Horizontal
@@ -111,10 +112,31 @@ void evaluateMove(byte board[6][2], byte player, byte col, long *playerScore, lo
   
 }
 
+char bestMove(byte board[6][2], byte player, byte col, long playerScore, long opponentScore, byte lookAhead) {
+
+  // make copy of board & scores
+  byte boardCopy[6][2];
+  long playerScoreCopy = playerScore;
+  long opponentScoreCopy = opponentScore;
+  for (char row = 0; row <= 5; row++) {
+    for (char player = 0; player <= 1; player++) {
+      boardCopy[row][player] = board[row][player];
+    }
+  }
+
+  // Try all available columns
+  for (char col = 0; col <= 6; col++) {
+    if boardCopy[0] & mask[col] == 0) {
+      evaluateMove(boardCopy, player, col, playerScoreCopy, 
+    }
+  }
+  
+}
+
 void setup() {
   
   Serial.begin(115200);
-  randomSeed(123456);
+  randomSeed(analogRead(A0));
   
   for (int n = 0; n <= 21; n++) {
     for (byte player = 0; player <= 1; player++) {
