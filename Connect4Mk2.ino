@@ -25,7 +25,7 @@ const char dirName[4][6] = {"horz", "vert", "diag\\", "diag/"};
 char buf[80];
 
 void printBoard() {
-  
+
   Serial.println(" 0123456");
   for (byte row = 0; row < 6; row++) {
     Serial.print(row);
@@ -47,7 +47,7 @@ void printBoard() {
 }
 
 void evaluateLine(byte board[6][2], byte player, char posRow, char posCol, char rowDir, char colDir, long *playerScore, long *opponentScore) {
-  
+
   byte playerTokens = 0;
   byte opponentTokens = 0;
   for (byte pos = 0; pos < 4; pos++) {
@@ -71,7 +71,7 @@ void evaluateLine(byte board[6][2], byte player, char posRow, char posCol, char 
     //sprintf(buf, "%c would gain %d points", token[player], points[playerTokens + 1] - points[playerTokens]);
   }
   //Serial.println(buf);
-  
+
 }
 
 void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, char rowDir, char colDir,
@@ -95,8 +95,8 @@ void evaluateLines(byte board[6][2], byte player, char startRow, char startCol, 
 
 }
 
-void evaluateMove(byte board[6][2], byte player, byte col, long *playerScore, long *opponentScore) {
-  
+char evaluateMove(byte board[6][2], byte player, byte col, long *playerScore, long *opponentScore) {
+
   byte row = 0;
   while ((row < 5) && ((board[row + 1][0] & mask[col]) == 0) && ((board[row + 1][1] & mask[col]) == 0)) row++;
   //sprintf(buf, "%c's counter would land in row %d column %d", token[player], row, col);
@@ -108,51 +108,89 @@ void evaluateMove(byte board[6][2], byte player, byte col, long *playerScore, lo
   evaluateLines(board, player, row, col, 1, 1, 0, 2, 0, 3, playerScore, opponentScore); // Diagonal NW to SE
   evaluateLines(board, player, row, col, 1, -1, 0, 2, 3, 6, playerScore, opponentScore); // Diagonal NE to SW
 
-  board[row][player] |= mask[col];
-  
+  return row;
+
 }
 
-char bestMove(byte board[6][2], byte player, byte col, long playerScore, long opponentScore, byte lookAhead) {
+char bestMove(byte board[6][2], byte player, long *playerScore, long *opponentScore, byte lookAhead) {
 
-  // make copy of board & scores
-  byte boardCopy[6][2];
-  long playerScoreCopy = playerScore;
-  long opponentScoreCopy = opponentScore;
-  for (char row = 0; row <= 5; row++) {
-    for (char player = 0; player <= 1; player++) {
-      boardCopy[row][player] = board[row][player];
-    }
-  }
+  char bestCol = 0;
+  long bestScore = 0;
+  long bestPlayerScore = 0;
+  long bestOpponentScore = 0;
 
   // Try all available columns
   for (char col = 0; col <= 6; col++) {
-    if boardCopy[0] & mask[col] == 0) {
-      evaluateMove(boardCopy, player, col, playerScoreCopy, 
+    // make copy of current scores
+    long playerScoreCopy = *playerScore;
+    long opponentScoreCopy = *opponentScore;
+    //sprintf(buf, "%c considering playing column %d: ", token[player], col);
+    //Serial.print(buf);
+    if ((board[0][0] & mask[col]) == 0 && (board[0][1] & mask[col]) == 0) {
+      char row = evaluateMove(board, player, col, &playerScoreCopy, &opponentScoreCopy);
+      //sprintf(buf, "score %c=%ld, %c=%ld", token[player], playerScoreCopy, token[1-player], opponentScoreCopy);
+      //Serial.println(buf);
+      //Drop in the counter temporarily
+      board[row][player] |= mask[col];
+      //printBoard();
+      if (lookAhead > 0) {
+        //sprintf(buf, "looking ahead %d more moves", lookAhead);
+        //Serial.println(buf);
+        char opponentBest = bestMove(board, 1 - player, &opponentScoreCopy, &playerScoreCopy, lookAhead - 1);
+      }
+      // Compare this move to best so far
+      if (opponentScoreCopy < 10000 && playerScoreCopy - opponentScoreCopy > bestScore || playerScoreCopy >= 10000) {
+        bestPlayerScore = playerScoreCopy;
+        bestOpponentScore = opponentScoreCopy;
+        bestScore = playerScoreCopy - opponentScoreCopy;
+        bestCol = col;
+      }
+      // remove the temporary counter
+      board[row][player] &= ~mask[col];
+    }
+    else {
+      //Serial.println("blocked");
     }
   }
-  
+  playerScore = bestPlayerScore;
+  opponentScore = bestOpponentScore;
+  return bestCol;
 }
 
 void setup() {
-  
+
   Serial.begin(115200);
-  randomSeed(analogRead(A0));
-  
-  for (int n = 0; n <= 21; n++) {
-    for (byte player = 0; player <= 1; player++) {
-      char col;
-      do {
-        col = random(7);
-      } while (board[0][0] & mask[col] || board[0][1] & mask[col]);
-      sprintf(buf, "\nRound %d, %c's move, chooses column %d:\n", n, token[player], col);
-      Serial.println(buf);
-      printBoard();
-      evaluateMove(board, player, col, &score[player], &score[1 - player]);
-    }
-    printBoard();
-  } 
+
 }
 
+char player = 0;
+
 void loop() {
+
+  printBoard();
+
+  if (score[player] >= 10000) {
+    sprintf(buf, "Player %c wins", token[player]);
+    Serial.println(buf);
+    while (1);
+  }
+  else if (score[1 - player] < 10000) {
+
+    sprintf(buf, "Evaluating best move for %c: ", token[player]);
+    Serial.println(buf);
+    unsigned long start = millis();
+    char col = bestMove(board, player, &score[player], &score[1 - player], 3);
+    sprintf(buf, "best move is %d, time taken %ld", col, millis() - start);
+    Serial.println(buf);
+    byte row = evaluateMove(board, player, col, &score[player], &score[1 - player]);
+    board[row][player] |= mask[col];
+
+  }
+
+  player = 1 - player;
+
+  //Serial.print("Press Enter...");
+  //while (Serial.available() == 0);
+  //while (Serial.available() > 0 ) Serial.read();
 
 }
